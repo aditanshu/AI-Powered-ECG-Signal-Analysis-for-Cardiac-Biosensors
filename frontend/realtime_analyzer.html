@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time ECG Analyzer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #00f260 0%, #0575e6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #aaa;
+            font-size: 1.1rem;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .panel h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            color: #00f260;
+        }
+
+        .ecg-display {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            height: 400px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .metric {
+            background: rgba(0, 242, 96, 0.1);
+            border: 1px solid rgba(0, 242, 96, 0.3);
+            border-radius: 12px;
+            padding: 1.25rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .metric:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 242, 96, 0.2);
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #aaa;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #00f260;
+        }
+
+        .metric-unit {
+            font-size: 0.9rem;
+            color: #888;
+            margin-left: 0.25rem;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.875rem;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-start {
+            background: linear-gradient(135deg, #00f260 0%, #0575e6 100%);
+            color: white;
+        }
+
+        .btn-start:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 242, 96, 0.3);
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #f85032 0%, #e73827 100%);
+            color: white;
+        }
+
+        .btn-stop:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(248, 80, 50, 0.3);
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        .status-active {
+            background: #00f260;
+            box-shadow: 0 0 10px #00f260;
+        }
+
+        .status-inactive {
+            background: #666;
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .alerts {
+            margin-top: 1.5rem;
+        }
+
+        .alert {
+            background: rgba(248, 80, 50, 0.1);
+            border: 1px solid rgba(248, 80, 50, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .alert-icon {
+            font-size: 1.5rem;
+            margin-right: 1rem;
+        }
+
+        .alert-text {
+            flex: 1;
+        }
+
+        .alert-time {
+            font-size: 0.85rem;
+            color: #888;
+        }
+
+        .settings-panel {
+            margin-top: 1.5rem;
+        }
+
+        .setting-item {
+            margin-bottom: 1.25rem;
+        }
+
+        .setting-label {
+            display: block;
+            font-size: 0.9rem;
+            color: #aaa;
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #00f260;
+            cursor: pointer;
+        }
+
+        .value-display {
+            color: #00f260;
+            font-weight: 600;
+            float: right;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Real-Time ECG Analyzer</h1>
+            <p class="subtitle">Live Cardiac Signal Monitoring & Analysis</p>
+        </header>
+
+        <div class="dashboard">
+            <div class="panel">
+                <h2>
+                    <span class="status-indicator status-inactive" id="statusIndicator"></span>
+                    Live ECG Signal
+                </h2>
+                <div class="ecg-display">
+                    <canvas id="ecgCanvas"></canvas>
+                </div>
+
+                <div class="controls">
+                    <button class="btn btn-start" onclick="startMonitoring()">▶️ Start Monitoring</button>
+                    <button class="btn btn-stop" onclick="stopMonitoring()">⏹️ Stop</button>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-label">Heart Rate</div>
+                        <div class="metric-value" id="heartRate">--<span class="metric-unit">BPM</span></div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">RR Interval</div>
+                        <div class="metric-value" id="rrInterval">--<span class="metric-unit">ms</span></div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">QRS Duration</div>
+                        <div class="metric-value" id="qrsDuration">--<span class="metric-unit">ms</span></div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Signal Quality</div>
+                        <div class="metric-value" id="signalQuality">--<span class="metric-unit">%</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="panel">
+                    <h2>⚠️ Anomaly Alerts</h2>
+                    <div class="alerts" id="alertsContainer">
+                        <p style="color: #666; text-align: center;">No anomalies detected</p>
+                    </div>
+                </div>
+
+                <div class="panel settings-panel">
+                    <h2>⚙️ Settings</h2>
+
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            Sensitivity
+                            <span class="value-display" id="sensitivityValue">50%</span>
+                        </label>
+                        <input type="range" id="sensitivity" min="0" max="100" value="50"
+                            oninput="updateSetting('sensitivity', this.value)">
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            Update Rate
+                            <span class="value-display" id="updateRateValue">60 Hz</span>
+                        </label>
+                        <input type="range" id="updateRate" min="30" max="120" value="60"
+                            oninput="updateSetting('updateRate', this.value)">
+                    </div>
+
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            Alert Threshold
+                            <span class="value-display" id="thresholdValue">75%</span>
+                        </label>
+                        <input type="range" id="threshold" min="0" max="100" value="75"
+                            oninput="updateSetting('threshold', this.value)">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isMonitoring = false;
+        let animationId = null;
+        let dataPoints = [];
+        let timeOffset = 0;
+        const canvas = document.getElementById('ecgCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth - 48;
+            canvas.height = container.clientHeight - 48;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        function generateECGPoint() {
+            const t = timeOffset;
+            const heartbeat = Math.sin(t * 0.1) * 0.3;
+            const qrs = t % 60 < 5 ? Math.sin(t * 2) * 2 : 0;
+            const noise = (Math.random() - 0.5) * 0.1;
+            return heartbeat + qrs + noise;
+        }
+
+        function drawECG() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Grid
+            ctx.strokeStyle = 'rgba(0, 242, 96, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i < canvas.height; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+
+            // ECG waveform
+            ctx.strokeStyle = '#00f260';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+
+            const centerY = canvas.height / 2;
+            const scale = canvas.height / 6;
+
+            for (let i = 0; i < dataPoints.length; i++) {
+                const x = (i / dataPoints.length) * canvas.width;
+                const y = centerY - dataPoints[i] * scale;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+
+        function updateMetrics() {
+            const hr = 60 + Math.floor(Math.random() * 40);
+            const rr = Math.floor(1000 / (hr / 60));
+            const qrs = 80 + Math.floor(Math.random() * 40);
+            const quality = 85 + Math.floor(Math.random() * 15);
+
+            document.getElementById('heartRate').innerHTML = `${hr}<span class="metric-unit">BPM</span>`;
+            document.getElementById('rrInterval').innerHTML = `${rr}<span class="metric-unit">ms</span>`;
+            document.getElementById('qrsDuration').innerHTML = `${qrs}<span class="metric-unit">ms</span>`;
+            document.getElementById('signalQuality').innerHTML = `${quality}<span class="metric-unit">%</span>`;
+
+            // Random anomaly detection
+            if (Math.random() > 0.95) {
+                addAlert();
+            }
+        }
+
+        function addAlert() {
+            const alerts = ['Irregular heartbeat detected', 'Elevated heart rate', 'Signal quality degraded', 'Possible arrhythmia'];
+            const alert = alerts[Math.floor(Math.random() * alerts.length)];
+            const time = new Date().toLocaleTimeString();
+
+            const alertHTML = `
+        <div class="alert">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-text">${alert}</div>
+          <div class="alert-time">${time}</div>
+        </div>
+      `;
+
+            const container = document.getElementById('alertsContainer');
+            if (container.children.length === 1 && container.children[0].tagName === 'P') {
+                container.innerHTML = '';
+            }
+            container.insertAdjacentHTML('afterbegin', alertHTML);
+
+            // Keep only last 5 alerts
+            while (container.children.length > 5) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        function animate() {
+            if (!isMonitoring) return;
+
+            dataPoints.push(generateECGPoint());
+            if (dataPoints.length > 200) {
+                dataPoints.shift();
+            }
+
+            timeOffset += 1;
+            drawECG();
+
+            if (timeOffset % 30 === 0) {
+                updateMetrics();
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function startMonitoring() {
+            if (isMonitoring) return;
+
+            isMonitoring = true;
+            document.getElementById('statusIndicator').classList.remove('status-inactive');
+            document.getElementById('statusIndicator').classList.add('status-active');
+
+            dataPoints = [];
+            timeOffset = 0;
+            animate();
+        }
+
+        function stopMonitoring() {
+            isMonitoring = false;
+            document.getElementById('statusIndicator').classList.remove('status-active');
+            document.getElementById('statusIndicator').classList.add('status-inactive');
+
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        }
+
+        function updateSetting(setting, value) {
+            if (setting === 'sensitivity') {
+                document.getElementById('sensitivityValue').textContent = value + '%';
+            } else if (setting === 'updateRate') {
+                document.getElementById('updateRateValue').textContent = value + ' Hz';
+            } else if (setting === 'threshold') {
+                document.getElementById('thresholdValue').textContent = value + '%';
+            }
+        }
+
+        // Initialize
+        drawECG();
+    </script>
+</body>
+
+</html>
